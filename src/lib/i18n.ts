@@ -1,4 +1,4 @@
-// i18n — Simple internationalization system
+﻿// i18n — Simple internationalization system
 
 import { type Locale } from '@/lib/types';
 export type { Locale };
@@ -12,6 +12,7 @@ export const translations = {
   'nav.applications': { en: 'Applications', th: 'ใบสมัคร' },
   'nav.interviews': { en: 'Interviews', th: 'การสัมภาษณ์' },
   'nav.aiAgent': { en: 'AI Agent', th: 'AI Agent' },
+  'nav.aiTraining': { en: 'AI Training', th: 'เทรนโมเดล AI' },
   'nav.settings': { en: 'Settings', th: 'ตั้งค่า' },
   'nav.jobs': { en: 'Job Openings', th: 'ตำแหน่งงาน' },
   'nav.myApplications': { en: 'My Applications', th: 'ใบสมัครของฉัน' },
@@ -132,3 +133,4 @@ export function t(key: TranslationKey, locale: Locale): string {
 export function getLocaleLabel(locale: Locale): string {
   return locale === 'th' ? 'ไทย' : 'EN';
 }
+

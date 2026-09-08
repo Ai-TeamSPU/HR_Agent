@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useLocale } from '@/pagefront/providers/LocaleProvider';
 import { useSidebar } from '@/pagefront/providers/SidebarProvider';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { LayoutDashboardIcon, HierarchyIcon, Briefcase06Icon, User03Icon, Task01Icon, MicVocalIcon, ChatBotIcon } from '@hugeicons/core-free-icons';
+import { LayoutDashboardIcon, HierarchyIcon, Briefcase06Icon, User03Icon, Task01Icon, MicVocalIcon, ChatBotIcon, AiBrain01Icon } from '@hugeicons/core-free-icons';
 
 const navItems = [
   {
@@ -43,6 +43,11 @@ const navItems = [
     href: '/dashboard/ai-agent',
     icon: <HugeiconsIcon icon={ChatBotIcon} size={18} />,
     key: 'nav.aiAgent' as const,
+  },
+  {
+    href: '/dashboard/ai-training',
+    icon: <HugeiconsIcon icon={AiBrain01Icon} size={18} />,
+    key: 'nav.aiTraining' as const,
   },
 ];
 
@@ -143,3 +148,4 @@ export function Sidebar() {
     </>
   );
 }
+
