@@ -123,6 +123,19 @@ export default function CandidateDetailPage({ params }: { params: Promise<{ id: 
     setIsScreeningAI(false);
   };
 
+  const handleOpenInviteModal = () => {
+    setInviteSuccess(null);
+    const firstUnapplied = activeVacancies.find(
+      (v) => !applications.some((a) => String(a.vacancyId) === String(v.id))
+    );
+    if (firstUnapplied) {
+      setTargetVacancyId(String(firstUnapplied.id));
+    } else if (activeVacancies.length > 0) {
+      setTargetVacancyId(String(activeVacancies[0].id));
+    }
+    setIsInviteModalOpen(true);
+  };
+
   // Handle Re-engage / Invite Candidate to Vacancy
   const handleConfirmInvite = async () => {
     if (!candidate || !targetVacancyId) return;
@@ -275,10 +288,7 @@ export default function CandidateDetailPage({ params }: { params: Promise<{ id: 
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
             size="sm"
-            onClick={() => {
-              setInviteSuccess(null);
-              setIsInviteModalOpen(true);
-            }}
+            onClick={handleOpenInviteModal}
             className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer flex items-center gap-1.5"
           >
             <HugeiconsIcon icon={Target01Icon} size={14} />
@@ -651,10 +661,7 @@ export default function CandidateDetailPage({ params }: { params: Promise<{ id: 
                 </Link>
                 <Button
                   size="sm"
-                  onClick={() => {
-                    setInviteSuccess(null);
-                    setIsInviteModalOpen(true);
-                  }}
+                  onClick={handleOpenInviteModal}
                   className="w-full text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <HugeiconsIcon icon={Target01Icon} size={14} />
@@ -878,11 +885,14 @@ export default function CandidateDetailPage({ params }: { params: Promise<{ id: 
                       onChange={(e) => setTargetVacancyId(e.target.value)}
                       className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-bold bg-white text-slate-800 focus:outline-emerald-500"
                     >
-                      {activeVacancies.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {locale === 'th' ? (v.position.titleTh || v.position.title) : v.position.title} ({v.position.department}) - สถานะ: {v.state}
-                        </option>
-                      ))}
+                      {activeVacancies.map((v) => {
+                        const isAlreadyApplied = applications.some((a) => String(a.vacancyId) === String(v.id));
+                        return (
+                          <option key={v.id} value={v.id} disabled={isAlreadyApplied}>
+                            {locale === 'th' ? (v.position.titleTh || v.position.title) : v.position.title} ({v.position.department}) - สถานะ: {v.state}{isAlreadyApplied ? ' [มีใบสมัครแล้ว]' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   )}
                 </div>

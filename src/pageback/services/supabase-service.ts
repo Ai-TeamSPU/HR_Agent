@@ -38,7 +38,7 @@ export async function fetchVacanciesFromDB(): Promise<Vacancy[]> {
         applications:applications(id, state),
         interviews:interviews(id, status)
       `)
-      .order('id', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.warn('Error fetching vacancies from Supabase:', error);
@@ -172,7 +172,7 @@ export async function fetchPublishedVacanciesFromDB(): Promise<Vacancy[]> {
         interviews:interviews(id, status)
       `)
       .in('state', ['PUBLISHED', 'RECRUITING'])
-      .order('id', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.warn('Error fetching published vacancies from Supabase:', error);
@@ -525,7 +525,7 @@ export async function fetchApplicationsFromDB(): Promise<Application[]> {
         candidate:candidates(*),
         vacancy:vacancies(*, position:positions(*))
       `)
-      .order('id', { ascending: true });
+      .order('applied_at', { ascending: false });
 
     if (error || !data || data.length === 0) {
       return [];
@@ -1252,6 +1252,23 @@ export async function submitApplicationToDB(data: {
     }
 
     const vacancyNumId = Number(data.vacancyId);
+    const validVacId = isNaN(vacancyNumId) ? 1 : vacancyNumId;
+
+    // ตรวจสอบก่อนว่า candidate รายนี้เคยยื่นสมัครตำแหน่งนี้ไว้แล้วหรือไม่
+    const { data: existingApp } = await supabase
+      .from('applications')
+      .select('id')
+      .eq('candidate_id', candidateId)
+      .eq('vacancy_id', validVacId)
+      .maybeSingle();
+
+    if (existingApp) {
+      return {
+        success: false,
+        error: 'ผู้สมัครรายนี้มีใบสมัครในตำแหน่งงานนี้อยู่แล้วในระบบ',
+        applicationId: String(existingApp.id),
+      };
+    }
 
     // 3. สร้าง Application
     const { data: maxApp } = await supabase
@@ -1328,8 +1345,9 @@ export async function submitApplicationToDB(data: {
 
     return { success: true, applicationId: String(nextAppId) };
   } catch (err: any) {
-    console.error('Error submitting application to Supabase:', err);
-    return { success: false, error: err.message || 'Submission failed' };
+    const errorMsg = err?.message || err?.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+    console.error('Error submitting application to Supabase:', errorMsg);
+    return { success: false, error: errorMsg || 'Submission failed' };
   }
 }
 
