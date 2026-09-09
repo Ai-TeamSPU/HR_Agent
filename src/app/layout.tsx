@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   title: "HR AI Agent — Recruitment System",
   description: "ระบบสรรหาบุคลากรอัจฉริยะ ขับเคลื่อนด้วย AI Agent — HR AI Agent Recruitment System powered by AI",
   keywords: ["HR", "AI", "Recruitment", "Hiring", "สรรหาบุคลากร", "ระบบ HR"],
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico' },
+    ],
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({
