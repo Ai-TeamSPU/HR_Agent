@@ -1,6 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+/**
+ * Smart URL Resolver for Action Links (Agree / Reject buttons in email)
+ * Automatically detects domain so links work anywhere:
+ * - Production deployments on Vercel / Custom domain
+ * - Mobile devices opening emails
+ * - Local development
+ */
+function resolveBaseUrl(request: NextRequest, clientAppUrl?: string): string {
+  // 1. Explicit domain specified in .env (e.g. https://recruitment.spu.ac.th or https://myapp.vercel.app)
+  const envAppUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/+$/, '');
+  if (envAppUrl && !envAppUrl.includes('localhost') && !envAppUrl.includes('127.0.0.1')) {
+    return envAppUrl;
+  }
+
+  // 2. Client-provided origin from browser (window.location.origin)
+  if (clientAppUrl && typeof clientAppUrl === 'string' && clientAppUrl.trim()) {
+    const trimmed = clientAppUrl.trim().replace(/\/+$/, '');
+    if (!trimmed.includes('localhost') && !trimmed.includes('127.0.0.1')) {
+      return trimmed;
+    }
+  }
+
+  // 3. Request Origin header (sent automatically by modern browsers on fetch)
+  const originHeader = request.headers.get('origin');
+  if (originHeader && !originHeader.includes('localhost') && !originHeader.includes('127.0.0.1')) {
+    return originHeader.replace(/\/+$/, '');
+  }
+
+  // 4. Request Host or X-Forwarded-Host (from reverse proxies, load balancers, Vercel edge)
+  const rawHost = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  const rawProto = request.headers.get('x-forwarded-proto') || (rawHost.includes('localhost') || rawHost.includes('127.0.0.1') ? 'http' : 'https');
+  if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')) {
+    return `${rawProto}://${rawHost}`.replace(/\/+$/, '');
+  }
+
+  // 5. Vercel System Environment Variables
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`.replace(/\/+$/, '');
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, '');
+  }
+
+  // 6. NextRequest URL origin
+  try {
+    const nextOrigin = request.nextUrl?.origin;
+    if (nextOrigin && !nextOrigin.includes('localhost') && !nextOrigin.includes('127.0.0.1')) {
+      return nextOrigin.replace(/\/+$/, '');
+    }
+  } catch {}
+
+  // 7. Fallback for Local Development (if envAppUrl was explicitly set to localhost or tunnel)
+  if (envAppUrl) {
+    return envAppUrl;
+  }
+
+  // 8. Fallback to clientUrl if provided
+  if (clientAppUrl && typeof clientAppUrl === 'string' && clientAppUrl.trim()) {
+    return clientAppUrl.trim().replace(/\/+$/, '');
+  }
+
+  // 9. Fallback to host header
+  if (rawHost) {
+    return `${rawProto}://${rawHost}`.replace(/\/+$/, '');
+  }
+
+  // 10. Default fallback
+  return 'http://localhost:3000';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
@@ -18,6 +88,7 @@ export async function POST(request: NextRequest) {
       meetingUrl = 'https://meet.google.com/spu-hr-interview',
       location = 'อาคาร 11 มหาวิทยาลัยศรีปทุม (บางเขน)',
       notes = '',
+      appUrl,
     } = data;
 
     if (!candidateEmail) {
@@ -41,7 +112,8 @@ export async function POST(request: NextRequest) {
     const smtpPort = Number(process.env.SMTP_PORT) || 465;
     const smtpFrom = process.env.SMTP_FROM || `"HR Sripatum University" <${smtpUser}>`;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const baseUrl = resolveBaseUrl(request, appUrl);
+    console.log(`[Email Service] Target: ${candidateEmail} | Resolved baseUrl: ${baseUrl}`);
     const agreeUrl = `${baseUrl}/interview-response?action=agree&interviewId=${interviewId || ''}&appId=${applicationId || ''}`;
     const rejectUrl = `${baseUrl}/interview-response?action=reject&interviewId=${interviewId || ''}&appId=${applicationId || ''}`;
 
@@ -245,6 +317,9 @@ export async function POST(request: NextRequest) {
           deliveredTo: candidateEmail,
           messageId: info.messageId,
           subject,
+          baseUrl,
+          agreeUrl,
+          rejectUrl,
           sentAt: new Date().toISOString(),
         });
       } catch (smtpErr: any) {
@@ -266,6 +341,9 @@ export async function POST(request: NextRequest) {
       mode: 'NEEDS_CONFIG',
       deliveredTo: candidateEmail,
       subject,
+      baseUrl,
+      agreeUrl,
+      rejectUrl,
       error: 'ยังไม่ได้ใส่ข้อมูลอีเมลและ App Password จริงในไฟล์ .env.local (ปัจจุบันยังเป็น your_email@spu.ac.th)',
       sentAt: new Date().toISOString(),
     }, { status: 200 });
