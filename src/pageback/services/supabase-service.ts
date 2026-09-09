@@ -1027,6 +1027,7 @@ export async function scheduleInterviewInDB(data: {
             meetingUrl: data.meetingUrl,
             location: data.location,
             notes: data.notes,
+            appUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
           }),
         });
 
