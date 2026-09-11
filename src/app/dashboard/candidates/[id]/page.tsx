@@ -36,7 +36,7 @@ import {
   fetchApplicationByIdFromDB,
   fetchVacanciesFromDB,
   submitApplicationToDB,
-  screenCandidateWithGeminiInDB,
+  screenCandidateWithAIInDB,
 } from '@/pageback/services';
 import type { Candidate, Application, CandidateDocument } from '@/lib/types/candidate';
 import type { Vacancy } from '@/lib/types/vacancy';
@@ -96,7 +96,7 @@ export default function CandidateDetailPage({ params }: { params: Promise<{ id: 
     loadData();
   }, [id]);
 
-  // Trigger Live Gemini AI Screening
+  // Trigger Live Claude AI Screening
   const handleRunAIScreening = async () => {
     if (!candidate) return;
     setIsScreeningAI(true);
@@ -105,7 +105,7 @@ export default function CandidateDetailPage({ params }: { params: Promise<{ id: 
     const targetTitle = latestAppDetail?.vacancyTitle || candidate.currentPosition || 'Specialist';
     const appId = latestAppDetail?.id || '1';
 
-    const res = await screenCandidateWithGeminiInDB(
+    const res = await screenCandidateWithAIInDB(
       appId,
       candName,
       targetTitle,
@@ -309,7 +309,7 @@ export default function CandidateDetailPage({ params }: { params: Promise<{ id: 
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                   <HugeiconsIcon icon={ChatBotIcon} size={20} className="text-emerald-600" />
-                  <span>{locale === 'th' ? 'ผลการวิเคราะห์และคัดกรองโดย AI (Google Gemini 3.8 Flash)' : 'AI Screening Analysis (Google Gemini 3.8 Flash)'}</span>
+                  <span>{locale === 'th' ? 'ผลการวิเคราะห์และคัดกรองโดย AI (Claude)' : 'AI Screening Analysis (Claude)'}</span>
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-200">

@@ -41,7 +41,7 @@ import {
   fetchApplicationByIdFromDB,
   updateApplicationStateInDB,
   fetchInterviewsFromDB,
-  screenCandidateWithGeminiInDB,
+  screenCandidateWithAIInDB,
   scheduleInterviewInDB,
 } from '@/pageback/services';
 import { getAvailableApplicationTransitions } from '@/pageback/services/application-service';
@@ -177,7 +177,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     const candidateName = `${application.candidate.firstName} ${application.candidate.lastName}`;
     const vacancyTitle = application.vacancyTitle;
 
-    const res = await screenCandidateWithGeminiInDB(
+    const res = await screenCandidateWithAIInDB(
       application.id,
       candidateName,
       vacancyTitle,
@@ -329,7 +329,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                     <HugeiconsIcon icon={ChatBotIcon} size={20} className="text-emerald-600" />
-                    <span>{locale === 'th' ? 'ผลการวิเคราะห์และคัดกรองโดย AI (Google Gemini 3.8 Flash)' : 'AI Screening Analysis (Google Gemini 3.8 Flash)'}</span>
+                    <span>{locale === 'th' ? 'ผลการวิเคราะห์และคัดกรองโดย AI (Claude)' : 'AI Screening Analysis (Claude)'}</span>
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-200">

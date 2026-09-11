@@ -170,7 +170,7 @@ export function Header() {
     if (combined.includes('applied') || combined.includes('สมัคร') || combined.includes('application')) {
       return '/dashboard/applications';
     }
-    if (combined.includes('screening') || combined.includes('คัดกรอง') || combined.includes('gemini') || combined.includes('ai')) {
+    if (combined.includes('screening') || combined.includes('คัดกรอง') || combined.includes('claude') || combined.includes('ai')) {
       return '/dashboard/ai-agent';
     }
     if (combined.includes('vacancy') || combined.includes('ตำแหน่งงาน') || combined.includes('job description') || combined.includes('jd')) {
@@ -226,7 +226,7 @@ export function Header() {
   const getNotificationIcon = (notif: NotificationItem) => {
     const text = (notif.titleTh + ' ' + notif.title + ' ' + notif.messageTh).toLowerCase();
     if (text.includes('สมัคร') || text.includes('application')) return <HugeiconsIcon icon={File01Icon} size={18} className="text-blue-600 dark:text-blue-400" />;
-    if (text.includes('ai') || text.includes('คัดกรอง') || text.includes('gemini')) return <HugeiconsIcon icon={ChatBotIcon} size={18} className="text-emerald-600 dark:text-emerald-400" />;
+    if (text.includes('ai') || text.includes('คัดกรอง') || text.includes('claude')) return <HugeiconsIcon icon={ChatBotIcon} size={18} className="text-emerald-600 dark:text-emerald-400" />;
     if (text.includes('สัมภาษณ์') || text.includes('interview')) return <HugeiconsIcon icon={Calendar03Icon} size={18} className="text-amber-600 dark:text-amber-400" />;
     if (text.includes('jd') || text.includes('job description')) return <HugeiconsIcon icon={AssignmentsIcon} size={18} className="text-purple-600 dark:text-purple-400" />;
     if (text.includes('อนุมัติ') || text.includes('approved') || text.includes('published')) return <HugeiconsIcon icon={SparklesIcon} size={18} className="text-teal-600 dark:text-teal-400" />;

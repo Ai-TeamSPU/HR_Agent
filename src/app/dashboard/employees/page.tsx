@@ -192,7 +192,7 @@ export default function PersonnelManagementPage() {
       salaryMin: editSalaryMin,
       salaryMax: editSalaryMax,
       confidence: 0.96,
-      modelVersion: 'Google Gemini Live',
+      modelVersion: 'claude-opus-5',
       generatedAt: new Date().toISOString(),
     };
 
@@ -763,7 +763,7 @@ export default function PersonnelManagementPage() {
                 <div className="py-16 text-center space-y-4">
                   <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
                   <h4 className="text-base font-bold text-slate-900">
-                    Google Gemini AI กำลังวิเคราะห์และร่าง Job Description...
+                    Claude AI กำลังวิเคราะห์และร่าง Job Description...
                   </h4>
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
                     AI กำลังดึงหน้าที่เดิมของตำแหน่ง <b>"{selectedEmployee.position}"</b> ใน <b>"{selectedEmployee.department}"</b> เพื่อจัดทำคุณสมบัติและทักษะที่จำเป็นสำหรับตำแหน่งทดแทน

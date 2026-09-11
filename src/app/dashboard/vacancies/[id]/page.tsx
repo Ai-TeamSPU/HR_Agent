@@ -344,7 +344,7 @@ export default function VacancyDetailPage({ params }: { params: Promise<{ id: st
                     {jd.generatedByAI && (
                       <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-full mt-1.5 inline-flex items-center gap-1">
                         <HugeiconsIcon icon={ChatBotIcon} size={13} />
-                        <span>{locale === 'th' ? `สร้างโดย Gemini AI (${jd.aiModelVersion || 'Gemini 3.8 Flash'})` : `AI Generated (${jd.aiModelVersion || 'Gemini 3.8 Flash'})`}</span>
+                        <span>{locale === 'th' ? `สร้างโดย Claude AI (${jd.aiModelVersion || 'claude-opus-5'})` : `AI Generated (${jd.aiModelVersion || 'claude-opus-5'})`}</span>
                       </span>
                     )}
                   </div>
@@ -365,12 +365,12 @@ export default function VacancyDetailPage({ params }: { params: Promise<{ id: st
                       {isRegenerating ? (
                         <span className="flex items-center gap-1.5">
                           <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                          {locale === 'th' ? 'Gemini กำลังร่าง JD ใหม่...' : 'Generating with Gemini...'}
+                          {locale === 'th' ? 'Claude กำลังร่าง JD ใหม่...' : 'Generating with Claude...'}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5">
                           <HugeiconsIcon icon={SparklesIcon} size={13} />
-                          <span>{locale === 'th' ? 'ให้ Gemini ร่าง JD ใหม่' : 'Regenerate JD with Gemini'}</span>
+                          <span>{locale === 'th' ? 'ให้ Claude ร่าง JD ใหม่' : 'Regenerate JD with Claude'}</span>
                         </span>
                       )}
                     </button>
@@ -378,9 +378,37 @@ export default function VacancyDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
+                {(jd.unitGroup || jd.unitName || jd.track || jd.positionLevel || jd.unitProfile || jd.reportsTo) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {jd.unitProfile && (
+                      <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">Unit Profile: {jd.unitProfile}</span>
+                    )}
+                    {jd.unitGroup && (
+                      <span className="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-full">{jd.unitGroup}</span>
+                    )}
+                    {jd.unitName && (
+                      <span className="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-full">{jd.unitName}</span>
+                    )}
+                    {jd.track && (
+                      <span className="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-full">{jd.track}</span>
+                    )}
+                    {jd.positionLevel && (
+                      <span className="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-full">{locale === 'th' ? 'ระดับ' : 'Level'}: {jd.positionLevel}</span>
+                    )}
+                    {jd.reportsTo && (
+                      <span className="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-full">{locale === 'th' ? 'บังคับบัญชาโดย' : 'Reports to'}: {jd.reportsTo}</span>
+                    )}
+                  </div>
+                )}
+
                 <div>
+                  {(jd.jobPurposeTh || jd.jobPurpose) && (
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">{locale === 'th' ? 'วัตถุประสงค์ของตำแหน่ง' : 'Job Purpose'}</h4>
+                  )}
                   <p className="text-sm text-slate-700 leading-relaxed font-normal">
-                    {locale === 'th' ? (jd.summaryTh || jd.summary) : (jd.summary || jd.summaryTh)}
+                    {locale === 'th'
+                      ? (jd.jobPurposeTh || jd.summaryTh || jd.summary)
+                      : (jd.jobPurpose || jd.summary || jd.summaryTh)}
                   </p>
                 </div>
 
@@ -388,7 +416,28 @@ export default function VacancyDetailPage({ params }: { params: Promise<{ id: st
 
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 mb-3">{locale === 'th' ? 'หน้าที่ความรับผิดชอบ' : 'Responsibilities'}</h3>
-                  {responsibilities.length > 0 ? (
+                  {jd.responsibilitiesGrouped && jd.responsibilitiesGrouped.length > 0 ? (
+                    <div className="space-y-3">
+                      {jd.responsibilitiesGrouped.map((duty, di) => (
+                        <div key={di} className="rounded-xl border border-slate-200 p-3.5">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <p className="text-sm font-bold text-slate-800">
+                              {locale === 'th' ? (duty.dutyAreaTh || duty.dutyArea) : (duty.dutyArea || duty.dutyAreaTh)}
+                            </p>
+                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">{duty.weightPercent}%</span>
+                          </div>
+                          <ul className="space-y-1.5">
+                            {(locale === 'th' ? (duty.tasksTh || duty.tasks || []) : (duty.tasks || duty.tasksTh || [])).map((task, ti) => (
+                              <li key={ti} className="flex items-start gap-2 text-sm text-slate-700">
+                                <span className="text-emerald-600 mt-0.5 shrink-0 font-bold">✦</span>
+                                {task}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  ) : responsibilities.length > 0 ? (
                     <ul className="space-y-2.5">
                       {responsibilities.map((r, i) => (
                         <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
@@ -401,6 +450,25 @@ export default function VacancyDetailPage({ params }: { params: Promise<{ id: st
                     <p className="text-xs text-slate-400 font-medium">{locale === 'th' ? 'ไม่มีข้อมูลหน้าที่ความรับผิดชอบ' : 'No responsibilities listed'}</p>
                   )}
                 </div>
+
+                {jd.kpis && jd.kpis.length > 0 && (
+                  <>
+                    <Separator className="bg-slate-100" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 mb-3">{locale === 'th' ? 'ตัวชี้วัดผลงานหลัก (KPIs)' : 'Key Performance Indicators'}</h3>
+                      <div className="space-y-2">
+                        {jd.kpis.map((kpi, ki) => (
+                          <div key={ki} className="rounded-lg bg-slate-50 border border-slate-100 p-2.5 text-sm">
+                            <p className="font-bold text-slate-800">{locale === 'th' ? (kpi.nameTh || kpi.name) : (kpi.name || kpi.nameTh)}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {locale === 'th' ? 'วิธีวัด' : 'Method'}: {locale === 'th' ? (kpi.methodTh || kpi.method) : (kpi.method || kpi.methodTh)} · {locale === 'th' ? 'เป้าหมาย' : 'Target'}: {locale === 'th' ? (kpi.targetTh || kpi.target) : (kpi.target || kpi.targetTh)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <Separator className="bg-slate-100" />
 
@@ -436,6 +504,79 @@ export default function VacancyDetailPage({ params }: { params: Promise<{ id: st
                   </>
                 )}
 
+                {jd.competencies && ((jd.competencies.core?.length || 0) > 0 || (jd.competencies.functional?.length || 0) > 0 || (jd.competencies.digitalAI?.length || 0) > 0) && (
+                  <>
+                    <Separator className="bg-slate-100" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 mb-3">{locale === 'th' ? 'สมรรถนะที่ต้องการ (Competencies)' : 'Competencies'}</h3>
+                      <div className="space-y-2 text-sm text-slate-700">
+                        {((locale === 'th' ? jd.competencies.coreTh : jd.competencies.core)?.length || 0) > 0 && (
+                          <p><span className="font-bold text-slate-800">Core:</span> {(locale === 'th' ? jd.competencies.coreTh : jd.competencies.core)?.join(', ')}</p>
+                        )}
+                        {jd.competencies.functional && jd.competencies.functional.length > 0 && (
+                          <p><span className="font-bold text-slate-800">Functional:</span> {jd.competencies.functional.map(f => `${locale === 'th' ? (f.nameTh || f.name) : f.name} (Lv.${f.level})`).join(', ')}</p>
+                        )}
+                        {((locale === 'th' ? jd.competencies.digitalAITh : jd.competencies.digitalAI)?.length || 0) > 0 && (
+                          <p><span className="font-bold text-slate-800">Digital &amp; AI Literacy:</span> {(locale === 'th' ? jd.competencies.digitalAITh : jd.competencies.digitalAI)?.join(', ')}</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {jd.workingRelationships && (((jd.workingRelationships.internal?.length || 0) + (jd.workingRelationships.internalTh?.length || 0) + (jd.workingRelationships.external?.length || 0) + (jd.workingRelationships.externalTh?.length || 0)) > 0) && (
+                  <>
+                    <Separator className="bg-slate-100" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 mb-3">{locale === 'th' ? 'ความสัมพันธ์ในการทำงาน' : 'Working Relationships'}</h3>
+                      <div className="space-y-2 text-sm text-slate-700">
+                        {((locale === 'th' ? jd.workingRelationships.internalTh : jd.workingRelationships.internal)?.length || 0) > 0 && (
+                          <p><span className="font-bold text-slate-800">{locale === 'th' ? 'ภายใน' : 'Internal'}:</span> {(locale === 'th' ? jd.workingRelationships.internalTh : jd.workingRelationships.internal)?.join(', ')}</p>
+                        )}
+                        {((locale === 'th' ? jd.workingRelationships.externalTh : jd.workingRelationships.external)?.length || 0) > 0 && (
+                          <p><span className="font-bold text-slate-800">{locale === 'th' ? 'ภายนอก' : 'External'}:</span> {(locale === 'th' ? jd.workingRelationships.externalTh : jd.workingRelationships.external)?.join(', ')}</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {jd.workingConditions && (((jd.workingConditions.conditions?.length || 0) + (jd.workingConditions.conditionsTh?.length || 0) + (jd.workingConditions.risks?.length || 0) + (jd.workingConditions.risksTh?.length || 0)) > 0 || jd.workingConditions.pdpaInvolved) && (
+                  <>
+                    <Separator className="bg-slate-100" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 mb-3">{locale === 'th' ? 'เงื่อนไขและความเสี่ยงของงาน' : 'Working Conditions & Risk'}</h3>
+                      <div className="space-y-2 text-sm text-slate-700">
+                        {((locale === 'th' ? jd.workingConditions.conditionsTh : jd.workingConditions.conditions)?.length || 0) > 0 && (
+                          <p><span className="font-bold text-slate-800">{locale === 'th' ? 'ลักษณะงาน' : 'Conditions'}:</span> {(locale === 'th' ? jd.workingConditions.conditionsTh : jd.workingConditions.conditions)?.join(', ')}</p>
+                        )}
+                        {((locale === 'th' ? jd.workingConditions.risksTh : jd.workingConditions.risks)?.length || 0) > 0 && (
+                          <p><span className="font-bold text-slate-800">{locale === 'th' ? 'ความเสี่ยง' : 'Risks'}:</span> {(locale === 'th' ? jd.workingConditions.risksTh : jd.workingConditions.risks)?.join(', ')}</p>
+                        )}
+                        {jd.workingConditions.pdpaInvolved && (
+                          <p className="inline-flex font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 text-xs">
+                            🔒 {locale === 'th' ? 'เกี่ยวข้องกับภาระหน้าที่ตาม PDPA' : 'Involves PDPA data-protection duties'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {jd.reviewFlags && jd.reviewFlags.length > 0 && (
+                  <>
+                    <Separator className="bg-slate-100" />
+                    <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5">
+                      <h3 className="text-sm font-bold text-amber-900 mb-2">⚠️ {locale === 'th' ? 'ข้อที่ต้องให้หน่วยงานยืนยัน' : 'Items requiring confirmation'}</h3>
+                      <ul className="space-y-1">
+                        {jd.reviewFlags.map((flag, i) => (
+                          <li key={i} className="text-xs text-amber-800">• {flag}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>
+                )}
+
                 {jd.salaryRange && (
                   <>
                     <Separator className="bg-slate-100" />
@@ -463,10 +604,10 @@ export default function VacancyDetailPage({ params }: { params: Promise<{ id: st
                   disabled={isRegenerating}
                   className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-1.5"
                 >
-                  {isRegenerating ? 'Gemini กำลังร่าง JD...' : (
+                  {isRegenerating ? 'Claude กำลังร่าง JD...' : (
                     <>
                       <HugeiconsIcon icon={ChatBotIcon} size={15} />
-                      <span>{t('vacancy.generateJD')} ด้วย Gemini</span>
+                      <span>{t('vacancy.generateJD')} ด้วย Claude</span>
                     </>
                   )}
                 </Button>

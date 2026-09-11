@@ -101,14 +101,11 @@ export default function AIAgentPage() {
     const sMin = Number(salaryMin) || 40000;
     const sMax = Number(salaryMax) || 75000;
 
-    const result = await generateJobDescription(
-      posTitle,
-      deptTitle,
-      undefined,
-      selectedSkills,
-      sMin,
-      sMax
-    );
+    const result = await generateJobDescription(posTitle, deptTitle, {
+      customSkills: selectedSkills,
+      salaryMin: sMin,
+      salaryMax: sMax,
+    });
 
     setJdResult(result);
     setEditTitle(locale === 'th' ? result.jobTitleTh : result.jobTitle);
@@ -160,7 +157,7 @@ export default function AIAgentPage() {
           salary_max: sMax,
           salary_currency: 'THB',
           generated_by_ai: true,
-          ai_model_version: result.modelVersion || 'gemini-3.8-flash',
+          ai_model_version: result.modelVersion || 'claude-opus-5',
           ai_confidence: result.confidence || 0.96,
         });
 
@@ -322,8 +319,8 @@ export default function AIAgentPage() {
 
         <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
           {locale === 'th'
-            ? 'ระบบ AI Agent (Google Gemini 3.8 Flash) ช่วยร่าง Job Description, วิเคราะห์จับคู่ผู้สมัคร และอนุมัติเปิดรับสมัคร'
-            : 'AI Agent (Google Gemini 3.8 Flash) generates JDs, matches candidates, and automates hiring'}
+            ? 'ระบบ AI Agent (Claude) ช่วยร่าง Job Description, วิเคราะห์จับคู่ผู้สมัคร และอนุมัติเปิดรับสมัคร'
+            : 'AI Agent (Claude) generates JDs, matches candidates, and automates hiring'}
         </p>
       </div>
 
@@ -344,7 +341,7 @@ export default function AIAgentPage() {
         <TabsContent value="jd" className="space-y-4">
           <Card className="border-slate-200 bg-white shadow-xs rounded-2xl">
             <CardHeader className="border-b border-slate-100">
-              <CardTitle className="text-sm font-bold text-slate-900">{locale === 'th' ? 'สร้าง Job Description ด้วย Google Gemini 3.8 Flash' : 'Generate JD with Gemini 3.8 Flash AI'}</CardTitle>
+              <CardTitle className="text-sm font-bold text-slate-900">{locale === 'th' ? 'สร้าง Job Description ด้วย Claude' : 'Generate JD with Claude AI'}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -482,10 +479,10 @@ export default function AIAgentPage() {
                 {isGenerating ? (
                   <span className="flex items-center gap-2">
                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                    {locale === 'th' ? 'Gemini กำลังร่าง JD ตามทักษะและเงินเดือน...' : 'Gemini Generating...'}
+                    {locale === 'th' ? 'Claude กำลังร่าง JD ตามทักษะและเงินเดือน...' : 'Claude Generating...'}
                   </span>
                 ) : (
-                  `🤖 ${locale === 'th' ? 'สร้าง JD อัจฉริยะ (Gemini AI)' : 'Generate JD with AI'}`
+                  `🤖 ${locale === 'th' ? 'สร้าง JD อัจฉริยะ (Claude AI)' : 'Generate JD with AI'}`
                 )}
               </Button>
             </CardContent>
@@ -558,7 +555,7 @@ export default function AIAgentPage() {
                     </p>
                   </div>
                   <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200">
-                    🤖 Google Gemini 3.8 Flash • Confidence: {(jdResult.confidence * 100).toFixed(0)}%
+                    🤖 Claude • Confidence: {(jdResult.confidence * 100).toFixed(0)}%
                   </span>
                 </div>
               </CardHeader>
@@ -712,7 +709,7 @@ export default function AIAgentPage() {
                     onClick={handleGenerateJD}
                     className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs cursor-pointer"
                   >
-                    🔄 {locale === 'th' ? 'ให้ Gemini ร่างใหม่' : 'Regenerate'}
+                    🔄 {locale === 'th' ? 'ให้ Claude ร่างใหม่' : 'Regenerate'}
                   </Button>
                 </div>
               </CardContent>
@@ -724,7 +721,7 @@ export default function AIAgentPage() {
         <TabsContent value="match" className="space-y-4">
           <Card className="border-slate-200 bg-white shadow-xs rounded-2xl">
             <CardHeader className="border-b border-slate-100">
-              <CardTitle className="text-sm font-bold text-slate-900">{locale === 'th' ? 'จับคู่ผู้สมัครกับตำแหน่งด้วย Gemini' : 'Match Candidate to Position with Gemini'}</CardTitle>
+              <CardTitle className="text-sm font-bold text-slate-900">{locale === 'th' ? 'จับคู่ผู้สมัครกับตำแหน่งด้วย Claude' : 'Match Candidate to Position with Claude'}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -765,10 +762,10 @@ export default function AIAgentPage() {
                 {isMatching ? (
                   <span className="flex items-center gap-2">
                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                    {locale === 'th' ? 'Gemini กำลังวิเคราะห์จับคู่...' : 'Gemini Matching...'}
+                    {locale === 'th' ? 'Claude กำลังวิเคราะห์จับคู่...' : 'Claude Matching...'}
                   </span>
                 ) : (
-                  `🎯 ${locale === 'th' ? 'วิเคราะห์ความเหมาะสมด้วย Gemini' : 'Analyze Match with Gemini'}`
+                  `🎯 ${locale === 'th' ? 'วิเคราะห์ความเหมาะสมด้วย Claude' : 'Analyze Match with Claude'}`
                 )}
               </Button>
             </CardContent>
@@ -813,8 +810,8 @@ export default function AIAgentPage() {
               </p>
               <p className="text-xs text-slate-400 max-w-md mx-auto">
                 {locale === 'th'
-                  ? 'เมื่อผู้สมัครยื่นใบสมัครและผ่านการวิเคราะห์/ประเมินความเหมาะสมโดย AI (Gemini) ข้อมูลผลการแนะนำจะปรากฏที่นี่'
-                  : 'Candidate match results evaluated by Gemini AI will appear here once candidates apply.'}
+                  ? 'เมื่อผู้สมัครยื่นใบสมัครและผ่านการวิเคราะห์/ประเมินความเหมาะสมโดย AI (Claude) ข้อมูลผลการแนะนำจะปรากฏที่นี่'
+                  : 'Candidate match results evaluated by Claude AI will appear here once candidates apply.'}
               </p>
             </Card>
           ) : (

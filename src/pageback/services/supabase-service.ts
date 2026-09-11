@@ -2,12 +2,83 @@
 // เชื่อมต่อ Query และ Mutation ข้อมูลสดจาก Supabase พร้อม Fallback อัตโนมัติ
 
 import { supabase } from '@/lib/supabase';
-import type { Vacancy, VacancyState } from '@/lib/types/vacancy';
+import type { Vacancy, VacancyState, JobDescription } from '@/lib/types/vacancy';
 import type { Candidate, Application, ApplicationState } from '@/lib/types/candidate';
 import type { Interview } from '@/lib/types/interview';
-import type { AIRecommendation, WorkflowEvent, AIJDGenerationResponse } from '@/lib/types/ai';
-import { generateJobDescription, matchCandidate } from './ai-service';
+import type { AIRecommendation, WorkflowEvent, AIJDGenerationResponse, TrainingProfile, Faculty } from '@/lib/types/ai';
+import { generateJobDescription, matchCandidate, DEFAULT_MODEL_VERSION } from './ai-service';
 
+/**
+ * แปลง Row ของตาราง job_descriptions (snake_case จาก Supabase) ให้เป็น JobDescription
+ * (camelCase) รองรับครบ 8 หมวดมาตรฐาน พร้อม Fallback จากข้อมูล Position เดิม
+ */
+function mapJobDescriptionRow(row: any, vacancyId: string | number, positionFallback?: any): JobDescription | undefined {
+  if (!row) return undefined;
+  return {
+    id: String(row.id),
+    vacancyId: String(vacancyId),
+    version: row.version || 1,
+    jobTitle: row.job_title,
+    jobTitleTh: row.job_title_th || row.job_title,
+    summary: row.summary || '',
+    summaryTh: row.summary_th || row.summary || '',
+    responsibilities: (row.responsibilities && row.responsibilities.length > 0)
+      ? row.responsibilities
+      : (row.responsibilities_th || positionFallback?.responsibilities || []),
+    responsibilitiesTh: (row.responsibilities_th && row.responsibilities_th.length > 0)
+      ? row.responsibilities_th
+      : (row.responsibilities || positionFallback?.responsibilities_th || []),
+    requirements: (row.requirements && row.requirements.length > 0)
+      ? row.requirements
+      : (row.requirements_th || positionFallback?.qualifications || []),
+    requirementsTh: (row.requirements_th && row.requirements_th.length > 0)
+      ? row.requirements_th
+      : (row.requirements || positionFallback?.qualifications_th || []),
+    preferredSkills: row.preferred_skills || [],
+    education: row.education || [],
+    experience: row.experience || [],
+    benefits: row.benefits || [],
+    benefitsTh: row.benefits_th || row.benefits || [],
+    salaryRange: row.salary_min ? {
+      min: Number(row.salary_min),
+      max: Number(row.salary_max),
+      currency: row.salary_currency || 'THB',
+    } : undefined,
+    generatedByAI: row.generated_by_ai ?? false,
+    aiModelVersion: row.ai_model_version,
+    aiConfidence: row.ai_confidence,
+    approvedBy: row.approved_by ? String(row.approved_by) : undefined,
+    approvedAt: row.approved_at,
+    isCurrent: row.is_current ?? true,
+    createdAt: row.created_at,
+
+    // หมวด 1: ข้อมูลตำแหน่งเพิ่มเติม
+    unitGroup: row.unit_group,
+    unitName: row.unit_name,
+    track: row.track,
+    positionLevel: row.position_level,
+    reportsTo: row.reports_to,
+    subordinates: row.subordinates || [],
+    unitProfile: row.unit_profile,
+    // หมวด 2: วัตถุประสงค์ของตำแหน่ง
+    jobPurpose: row.job_purpose,
+    jobPurposeTh: row.job_purpose_th,
+    // หมวด 3: หน้าที่ความรับผิดชอบแบบกลุ่ม
+    responsibilitiesGrouped: row.responsibilities_grouped || [],
+    // หมวด 4: KPIs
+    kpis: row.kpis || [],
+    // หมวด 6-8
+    competencies: row.competencies && Object.keys(row.competencies).length > 0 ? row.competencies : undefined,
+    workingRelationships: row.working_relationships && Object.keys(row.working_relationships).length > 0 ? row.working_relationships : undefined,
+    workingConditions: row.working_conditions && Object.keys(row.working_conditions).length > 0 ? row.working_conditions : undefined,
+    // Metadata
+    status: row.status,
+    tags: row.tags || [],
+    promptUsed: row.prompt_used,
+    isBenchmark: row.is_benchmark ?? false,
+    reviewFlags: row.review_flags || [],
+  };
+}
 
 /**
  * ตรวจสอบสถานะการเชื่อมต่อ Supabase
@@ -78,44 +149,7 @@ export async function fetchVacanciesFromDB(): Promise<Vacancy[]> {
       reasonDetail: item.reason_detail,
       hiringManagerId: String(item.hiring_manager_id || '1'),
       hiringManagerName: 'Hiring Manager',
-      jobDescription: item.job_descriptions?.[0] ? {
-        id: String(item.job_descriptions[0].id),
-        vacancyId: String(item.id),
-        version: item.job_descriptions[0].version || 1,
-        jobTitle: item.job_descriptions[0].job_title,
-        jobTitleTh: item.job_descriptions[0].job_title_th || item.job_descriptions[0].job_title,
-        summary: item.job_descriptions[0].summary || '',
-        summaryTh: item.job_descriptions[0].summary_th || item.job_descriptions[0].summary || '',
-        responsibilities: (item.job_descriptions[0].responsibilities && item.job_descriptions[0].responsibilities.length > 0)
-          ? item.job_descriptions[0].responsibilities
-          : (item.job_descriptions[0].responsibilities_th || item.position?.responsibilities || []),
-        responsibilitiesTh: (item.job_descriptions[0].responsibilities_th && item.job_descriptions[0].responsibilities_th.length > 0)
-          ? item.job_descriptions[0].responsibilities_th
-          : (item.job_descriptions[0].responsibilities || item.position?.responsibilities_th || []),
-        requirements: (item.job_descriptions[0].requirements && item.job_descriptions[0].requirements.length > 0)
-          ? item.job_descriptions[0].requirements
-          : (item.job_descriptions[0].requirements_th || item.position?.qualifications || []),
-        requirementsTh: (item.job_descriptions[0].requirements_th && item.job_descriptions[0].requirements_th.length > 0)
-          ? item.job_descriptions[0].requirements_th
-          : (item.job_descriptions[0].requirements || item.position?.qualifications_th || []),
-        preferredSkills: item.job_descriptions[0].preferred_skills || [],
-        education: item.job_descriptions[0].education || [],
-        experience: item.job_descriptions[0].experience || [],
-        benefits: item.job_descriptions[0].benefits || [],
-        benefitsTh: item.job_descriptions[0].benefits_th || item.job_descriptions[0].benefits || [],
-        salaryRange: item.job_descriptions[0].salary_min ? {
-          min: Number(item.job_descriptions[0].salary_min),
-          max: Number(item.job_descriptions[0].salary_max),
-          currency: item.job_descriptions[0].salary_currency || 'THB',
-        } : undefined,
-        generatedByAI: item.job_descriptions[0].generated_by_ai ?? false,
-        aiModelVersion: item.job_descriptions[0].ai_model_version,
-        aiConfidence: item.job_descriptions[0].ai_confidence,
-        approvedBy: item.job_descriptions[0].approved_by ? String(item.job_descriptions[0].approved_by) : undefined,
-        approvedAt: item.job_descriptions[0].approved_at,
-        isCurrent: item.job_descriptions[0].is_current ?? true,
-        createdAt: item.job_descriptions[0].created_at,
-      } : (item.position?.responsibilities && item.position.responsibilities.length > 0) ? {
+      jobDescription: item.job_descriptions?.[0] ? mapJobDescriptionRow(item.job_descriptions[0], item.id, item.position) : (item.position?.responsibilities && item.position.responsibilities.length > 0) ? {
         id: String(item.id),
         vacancyId: String(item.id),
         version: 1,
@@ -133,7 +167,7 @@ export async function fetchVacanciesFromDB(): Promise<Vacancy[]> {
         benefits: ['ประกันสุขภาพกลุ่ม', 'โบนัสประจำปี', 'วันหยุดพักผ่อนประจำปี'],
         benefitsTh: ['ประกันสุขภาพกลุ่ม', 'โบนัสประจำปี', 'วันหยุดพักผ่อนประจำปี'],
         generatedByAI: true,
-        aiModelVersion: 'gemini-3.8-flash',
+        aiModelVersion: DEFAULT_MODEL_VERSION,
         aiConfidence: 0.96,
         isCurrent: true,
         createdAt: item.created_at,
@@ -212,44 +246,7 @@ export async function fetchPublishedVacanciesFromDB(): Promise<Vacancy[]> {
       reasonDetail: item.reason_detail,
       hiringManagerId: String(item.hiring_manager_id || '1'),
       hiringManagerName: 'Hiring Manager',
-      jobDescription: item.job_descriptions?.[0] ? {
-        id: String(item.job_descriptions[0].id),
-        vacancyId: String(item.id),
-        version: item.job_descriptions[0].version || 1,
-        jobTitle: item.job_descriptions[0].job_title,
-        jobTitleTh: item.job_descriptions[0].job_title_th || item.job_descriptions[0].job_title,
-        summary: item.job_descriptions[0].summary || '',
-        summaryTh: item.job_descriptions[0].summary_th || item.job_descriptions[0].summary || '',
-        responsibilities: (item.job_descriptions[0].responsibilities && item.job_descriptions[0].responsibilities.length > 0)
-          ? item.job_descriptions[0].responsibilities
-          : (item.job_descriptions[0].responsibilities_th || []),
-        responsibilitiesTh: (item.job_descriptions[0].responsibilities_th && item.job_descriptions[0].responsibilities_th.length > 0)
-          ? item.job_descriptions[0].responsibilities_th
-          : (item.job_descriptions[0].responsibilities || []),
-        requirements: (item.job_descriptions[0].requirements && item.job_descriptions[0].requirements.length > 0)
-          ? item.job_descriptions[0].requirements
-          : (item.job_descriptions[0].requirements_th || []),
-        requirementsTh: (item.job_descriptions[0].requirements_th && item.job_descriptions[0].requirements_th.length > 0)
-          ? item.job_descriptions[0].requirements_th
-          : (item.job_descriptions[0].requirements || []),
-        preferredSkills: item.job_descriptions[0].preferred_skills || [],
-        education: item.job_descriptions[0].education || [],
-        experience: item.job_descriptions[0].experience || [],
-        benefits: item.job_descriptions[0].benefits || [],
-        benefitsTh: item.job_descriptions[0].benefits_th || item.job_descriptions[0].benefits || [],
-        salaryRange: item.job_descriptions[0].salary_min ? {
-          min: Number(item.job_descriptions[0].salary_min),
-          max: Number(item.job_descriptions[0].salary_max),
-          currency: item.job_descriptions[0].salary_currency || 'THB',
-        } : undefined,
-        generatedByAI: item.job_descriptions[0].generated_by_ai ?? false,
-        aiModelVersion: item.job_descriptions[0].ai_model_version,
-        aiConfidence: item.job_descriptions[0].ai_confidence,
-        approvedBy: item.job_descriptions[0].approved_by ? String(item.job_descriptions[0].approved_by) : undefined,
-        approvedAt: item.job_descriptions[0].approved_at,
-        isCurrent: item.job_descriptions[0].is_current ?? true,
-        createdAt: item.job_descriptions[0].created_at,
-      } : undefined,
+      jobDescription: mapJobDescriptionRow(item.job_descriptions?.[0], item.id),
       applicationCount: Array.isArray(item.applications) ? item.applications.length : 0,
       shortlistedCount: Array.isArray(item.applications)
         ? item.applications.filter((a: any) => ['SHORTLISTED', 'INTERVIEWING', 'OFFERED', 'HIRED'].includes(a.state)).length
@@ -312,44 +309,7 @@ export async function fetchVacancyByIdFromDB(id: string): Promise<Vacancy | unde
       reasonDetail: data.reason_detail,
       hiringManagerId: String(data.hiring_manager_id || '1'),
       hiringManagerName: 'Hiring Manager',
-      jobDescription: data.job_descriptions?.[0] ? {
-        id: String(data.job_descriptions[0].id),
-        vacancyId: String(data.id),
-        version: data.job_descriptions[0].version || 1,
-        jobTitle: data.job_descriptions[0].job_title,
-        jobTitleTh: data.job_descriptions[0].job_title_th || data.job_descriptions[0].job_title,
-        summary: data.job_descriptions[0].summary || '',
-        summaryTh: data.job_descriptions[0].summary_th || data.job_descriptions[0].summary || '',
-        responsibilities: (data.job_descriptions[0].responsibilities && data.job_descriptions[0].responsibilities.length > 0)
-          ? data.job_descriptions[0].responsibilities
-          : (data.job_descriptions[0].responsibilities_th || data.position?.responsibilities || []),
-        responsibilitiesTh: (data.job_descriptions[0].responsibilities_th && data.job_descriptions[0].responsibilities_th.length > 0)
-          ? data.job_descriptions[0].responsibilities_th
-          : (data.job_descriptions[0].responsibilities || data.position?.responsibilities_th || []),
-        requirements: (data.job_descriptions[0].requirements && data.job_descriptions[0].requirements.length > 0)
-          ? data.job_descriptions[0].requirements
-          : (data.job_descriptions[0].requirements_th || data.position?.qualifications || []),
-        requirementsTh: (data.job_descriptions[0].requirements_th && data.job_descriptions[0].requirements_th.length > 0)
-          ? data.job_descriptions[0].requirements_th
-          : (data.job_descriptions[0].requirements || data.position?.qualifications_th || []),
-        preferredSkills: data.job_descriptions[0].preferred_skills || [],
-        education: data.job_descriptions[0].education || [],
-        experience: data.job_descriptions[0].experience || [],
-        benefits: data.job_descriptions[0].benefits || [],
-        benefitsTh: data.job_descriptions[0].benefits_th || data.job_descriptions[0].benefits || [],
-        salaryRange: data.job_descriptions[0].salary_min ? {
-          min: Number(data.job_descriptions[0].salary_min),
-          max: Number(data.job_descriptions[0].salary_max),
-          currency: data.job_descriptions[0].salary_currency || 'THB',
-        } : undefined,
-        generatedByAI: data.job_descriptions[0].generated_by_ai ?? false,
-        aiModelVersion: data.job_descriptions[0].ai_model_version,
-        aiConfidence: data.job_descriptions[0].ai_confidence,
-        approvedBy: data.job_descriptions[0].approved_by ? String(data.job_descriptions[0].approved_by) : undefined,
-        approvedAt: data.job_descriptions[0].approved_at,
-        isCurrent: data.job_descriptions[0].is_current ?? true,
-        createdAt: data.job_descriptions[0].created_at,
-      } : (data.position?.responsibilities && data.position.responsibilities.length > 0) ? {
+      jobDescription: data.job_descriptions?.[0] ? mapJobDescriptionRow(data.job_descriptions[0], data.id, data.position) : (data.position?.responsibilities && data.position.responsibilities.length > 0) ? {
         id: String(data.id),
         vacancyId: String(data.id),
         version: 1,
@@ -367,7 +327,7 @@ export async function fetchVacancyByIdFromDB(id: string): Promise<Vacancy | unde
         benefits: ['ประกันสุขภาพกลุ่ม', 'โบนัสประจำปี', 'วันหยุดพักผ่อนประจำปี'],
         benefitsTh: ['ประกันสุขภาพกลุ่ม', 'โบนัสประจำปี', 'วันหยุดพักผ่อนประจำปี'],
         generatedByAI: true,
-        aiModelVersion: 'gemini-3.8-flash',
+        aiModelVersion: DEFAULT_MODEL_VERSION,
         aiConfidence: 0.96,
         isCurrent: true,
         createdAt: data.created_at,
@@ -389,6 +349,169 @@ export async function fetchVacancyByIdFromDB(id: string): Promise<Vacancy | unde
   }
 }
 
+// ============================================================
+// Training Profiles (หน้า "เทรนโมเดล AI") — job_training_profiles
+// ============================================================
+
+function mapTrainingProfileRow(row: any): TrainingProfile {
+  return {
+    id: String(row.id),
+    positionId: row.position_id ? String(row.position_id) : undefined,
+    positionTitle: row.position_title,
+    positionTitleTh: row.position_title_th || row.position_title,
+    department: row.department,
+    level: row.level || '',
+    educationLevel: row.education_level || '',
+    minExperienceYears: row.min_experience_years ?? 0,
+    standardResponsibilities: row.standard_responsibilities || [],
+    requiredSkills: row.required_skills || [],
+    aiGuidelines: row.ai_guidelines || '',
+    standardBenefits: row.standard_benefits || [],
+    salaryRange: row.salary_range || { min: 0, max: 0 },
+    unitProfile: row.unit_profile,
+    track: row.track,
+    isTrained: row.is_trained ?? false,
+    lastTrainedAt: row.last_trained_at,
+    updatedBy: row.updated_by ? String(row.updated_by) : undefined,
+  };
+}
+
+/**
+ * ดึงเกณฑ์มาตรฐาน AI ประจำตำแหน่งทั้งหมดจากตาราง job_training_profiles
+ */
+export async function fetchTrainingProfiles(): Promise<TrainingProfile[]> {
+  try {
+    const { data, error } = await supabase
+      .from('job_training_profiles')
+      .select('*')
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.warn('Error fetching training profiles from Supabase:', error);
+      return [];
+    }
+
+    return (data || []).map(mapTrainingProfileRow);
+  } catch (err) {
+    console.error('Error fetching training profiles from Supabase:', err);
+    return [];
+  }
+}
+
+/**
+ * บันทึก/อัปเดตเกณฑ์มาตรฐาน AI ประจำตำแหน่ง (Upsert ตาม id หรือ position_id)
+ */
+export async function upsertTrainingProfile(profile: TrainingProfile): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const payload: any = {
+      position_id: profile.positionId ? Number(profile.positionId) : null,
+      position_title: profile.positionTitle,
+      position_title_th: profile.positionTitleTh,
+      department: profile.department,
+      level: profile.level,
+      education_level: profile.educationLevel,
+      min_experience_years: profile.minExperienceYears,
+      standard_responsibilities: profile.standardResponsibilities,
+      required_skills: profile.requiredSkills,
+      ai_guidelines: profile.aiGuidelines,
+      standard_benefits: profile.standardBenefits,
+      salary_range: profile.salaryRange,
+      unit_profile: profile.unitProfile,
+      track: profile.track,
+      is_trained: profile.isTrained,
+      last_trained_at: profile.isTrained ? new Date().toISOString() : profile.lastTrainedAt,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (profile.id) {
+      const { error } = await supabase
+        .from('job_training_profiles')
+        .update(payload)
+        .eq('id', Number(profile.id));
+
+      if (error) throw error;
+      return { success: true, id: profile.id };
+    }
+
+    const { data, error } = await supabase
+      .from('job_training_profiles')
+      .insert(payload)
+      .select('id')
+      .single();
+
+    if (error) throw error;
+    return { success: true, id: String(data.id) };
+  } catch (err: any) {
+    console.error('Error upserting training profile:', err);
+    return { success: false, error: err.message || 'บันทึกเกณฑ์มาตรฐานไม่สำเร็จ' };
+  }
+}
+
+/**
+ * ลบเกณฑ์มาตรฐาน AI ประจำตำแหน่ง
+ */
+export async function deleteTrainingProfile(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('job_training_profiles')
+      .delete()
+      .eq('id', Number(id));
+
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Error deleting training profile:', err);
+    return false;
+  }
+}
+
+// ============================================================
+// Historical JD Lookup (Few-Shot Context สำหรับ ai-service.ts)
+// ============================================================
+
+/**
+ * ดึง JD ล่าสุดที่ approved แล้ว (หรือถูกตั้งเป็น Benchmark) ในหน่วยงานเดียวกัน
+ * ใช้เป็น Few-shot Reference ก่อนส่งให้ Claude สร้าง JD ใหม่
+ */
+export async function fetchApprovedJDsByDepartment(
+  department: string,
+  limit: number = 2,
+): Promise<JobDescription[]> {
+  try {
+    const { data, error } = await supabase
+      .from('job_descriptions')
+      .select('*')
+      .eq('unit_name', department)
+      .or('approved_by.not.is.null,is_benchmark.eq.true')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.warn('Error fetching approved JDs by department:', error);
+      return [];
+    }
+
+    return (data || [])
+      .map((row: any) => mapJobDescriptionRow(row, row.vacancy_id))
+      .filter((jd): jd is JobDescription => !!jd);
+  } catch (err) {
+    console.error('Error fetching approved JDs by department:', err);
+    return [];
+  }
+}
+
+// ============================================================
+// [FUTURE] คณะ/วิทยาลัย — เตรียมไว้แต่ยังไม่ใช้งานจริง (ตาราง faculties ยังไม่ถูกสร้าง)
+// ============================================================
+
+export async function fetchFaculties(): Promise<Faculty[]> {
+  return [];
+}
+
+export async function createFaculty(_data: Faculty): Promise<{ success: boolean; error?: string }> {
+  // TODO: เปิดใช้งานเมื่อสร้างตาราง faculties แล้ว (ดู scriptDB/migration-jd-8-categories.sql)
+  return { success: false, error: 'Faculty management ยังไม่เปิดใช้งาน (เตรียมรองรับอนาคต)' };
+}
 
 /**
  * ดึงข้อมูล Candidates ทั้งหมดจาก Supabase
@@ -681,9 +804,9 @@ export async function fetchApplicationByIdFromDB(id: string): Promise<Applicatio
 }
 
 /**
- * สั่งให้ Google Gemini คัดกรองและประเมินผู้สมัครคนนี้สดๆ
+ * สั่งให้ Claude คัดกรองและประเมินผู้สมัครคนนี้สดๆ
  */
-export async function screenCandidateWithGeminiInDB(
+export async function screenCandidateWithAIInDB(
   applicationId: string,
   candidateName: string,
   vacancyTitle: string,
@@ -705,10 +828,10 @@ export async function screenCandidateWithGeminiInDB(
       entity_type: 'APPLICATION',
       entity_id: isNaN(numAppId) ? 1 : numAppId,
       actor_type: 'AI_AGENT',
-      actor_id: 'gemini-3.8-flash',
-      actor_name: 'Google Gemini 3.8 Flash',
+      actor_id: aiResult.modelVersion || DEFAULT_MODEL_VERSION,
+      actor_name: 'Claude',
       description: `AI screened ${candidateName} for ${vacancyTitle} with score ${aiResult.matchScore}%`,
-      description_th: `AI (Gemini 3.8 Flash) ทำการคัดกรอง ${candidateName} สำหรับตำแหน่ง ${vacancyTitle} ได้คะแนนความเหมาะสม ${aiResult.matchScore}%`,
+      description_th: `AI (Claude) ทำการคัดกรอง ${candidateName} สำหรับตำแหน่ง ${vacancyTitle} ได้คะแนนความเหมาะสม ${aiResult.matchScore}%`,
     });
 
     // ส่งการแจ้งเตือน AI Screening สำเร็จ
@@ -716,8 +839,8 @@ export async function screenCandidateWithGeminiInDB(
       await createNotificationInDB({
         title: 'AI Screening Ready',
         titleTh: '🤖 ผลการคัดกรอง AI พร้อมแล้ว',
-        message: `Gemini evaluated ${candidateName} (${aiResult.matchScore}% Match Score)`,
-        messageTh: `AI (Gemini 3.8 Flash) วิเคราะห์ ${candidateName} สำหรับ ${vacancyTitle} ได้คะแนน ${aiResult.matchScore}%`,
+        message: `Claude evaluated ${candidateName} (${aiResult.matchScore}% Match Score)`,
+        messageTh: `AI (Claude) วิเคราะห์ ${candidateName} สำหรับ ${vacancyTitle} ได้คะแนน ${aiResult.matchScore}%`,
         type: 'SUCCESS',
         actionUrl: `/dashboard/applications/${applicationId}`,
       });
@@ -727,7 +850,7 @@ export async function screenCandidateWithGeminiInDB(
 
     return aiResult;
   } catch (err) {
-    console.error('Error screening with Gemini:', err);
+    console.error('Error screening with Claude:', err);
     return null;
   }
 }
@@ -1291,7 +1414,7 @@ export async function submitApplicationToDB(data: {
 
     if (appError) throw appError;
 
-    // 4. สั่งให้ AI (Google Gemini) คัดกรองและประเมินทักษะของผู้สมัครกับตำแหน่งงานทันที
+    // 4. สั่งให้ AI (Claude) คัดกรองและประเมินทักษะของผู้สมัครกับตำแหน่งงานทันที
     try {
       const { data: vacInfo } = await supabase
         .from('vacancies')
@@ -1301,7 +1424,7 @@ export async function submitApplicationToDB(data: {
 
       const vacancyTitle = (vacInfo as any)?.position?.titleTh || (vacInfo as any)?.position?.title || 'Open Position';
 
-      await screenCandidateWithGeminiInDB(
+      await screenCandidateWithAIInDB(
         String(nextAppId),
         `${data.candidate.firstName} ${data.candidate.lastName}`,
         vacancyTitle,
@@ -1508,6 +1631,14 @@ export async function createVacancyInDB(data: {
   skills?: string[];
   salaryMin?: number;
   salaryMax?: number;
+  unitGroup?: string;
+  unitName?: string;
+  track?: string;
+  positionLevel?: string;
+  campus?: string;
+  facultyId?: string;
+  /** ผลลัพธ์ JD ที่สร้างไว้แล้ว (เช่น จากหน้า "เทรนโมเดล AI") — ใช้แทนการเรียก Claude ใหม่ */
+  aiJdOverride?: AIJDGenerationResponse;
   customJD?: {
     summary?: string;
     summaryTh?: string;
@@ -1523,18 +1654,35 @@ export async function createVacancyInDB(data: {
   };
 }): Promise<{ success: boolean; vacancyId?: string; error?: string }> {
   try {
-    // 1. สร้าง AI JD ก่อน (ถ้าเลือกและไม่มี customJD)
-    let aiJd: AIJDGenerationResponse | null = null;
-    if (data.generateAIJD && !data.customJD) {
+    // 1. สร้าง AI JD ก่อน (ใช้ของที่มีอยู่แล้วถ้ามี ไม่งั้นเรียก Claude ใหม่ถ้าเลือกและไม่มี customJD)
+    let aiJd: AIJDGenerationResponse | null = data.aiJdOverride || null;
+    if (!aiJd && data.generateAIJD && !data.customJD) {
       try {
-        aiJd = await generateJobDescription(
-          data.title,
-          data.department,
-          undefined,
-          data.skills,
-          data.salaryMin || 40000,
-          data.salaryMax || 75000
-        );
+        // ดึง Historical JD (Few-shot) ของหน่วยงานเดียวกัน เพื่อให้ Claude ยึดมาตรฐานเดิม
+        const historicalJDs = data.unitName
+          ? await fetchApprovedJDsByDepartment(data.unitName).catch(() => [])
+          : [];
+
+        aiJd = await generateJobDescription(data.title, data.department, {
+          unitGroup: data.unitGroup,
+          unitName: data.unitName,
+          track: data.track,
+          positionLevel: data.positionLevel,
+          customSkills: data.skills,
+          salaryMin: data.salaryMin || 40000,
+          salaryMax: data.salaryMax || 75000,
+          campus: data.campus,
+          facultyId: data.facultyId,
+          historicalJDs: historicalJDs.length > 0 ? historicalJDs.map(jd => ({
+            jobTitle: jd.jobTitle,
+            jobTitleTh: jd.jobTitleTh,
+            unitName: jd.unitName,
+            summary: jd.summary,
+            responsibilitiesGrouped: jd.responsibilitiesGrouped,
+            kpis: jd.kpis,
+            competencies: jd.competencies,
+          })) : undefined,
+        });
       } catch (err) {
         console.warn('AI JD generation warning in createVacancyInDB:', err);
       }
@@ -1627,8 +1775,26 @@ export async function createVacancyInDB(data: {
         salary_max: data.salaryMax || 75000,
         salary_currency: 'THB',
         generated_by_ai: true,
-        ai_model_version: aiJd?.modelVersion || 'gemini-3.8-flash',
+        ai_model_version: aiJd?.modelVersion || DEFAULT_MODEL_VERSION,
         ai_confidence: aiJd?.confidence || 0.96,
+
+        // 8 หมวดมาตรฐาน (SPU JD Architect)
+        unit_group: aiJd?.unitGroup || data.unitGroup,
+        unit_name: aiJd?.unitName || data.unitName || data.department,
+        track: aiJd?.track || data.track,
+        position_level: aiJd?.positionLevel || data.positionLevel,
+        reports_to: aiJd?.reportsTo,
+        subordinates: aiJd?.subordinates || [],
+        unit_profile: aiJd?.unitProfile,
+        job_purpose: aiJd?.jobPurpose,
+        job_purpose_th: aiJd?.jobPurposeTh,
+        responsibilities_grouped: aiJd?.responsibilitiesGrouped || [],
+        kpis: aiJd?.kpis || [],
+        competencies: aiJd?.competencies || {},
+        working_relationships: aiJd?.workingRelationships || {},
+        working_conditions: aiJd?.workingConditions || {},
+        status: 'DRAFT',
+        review_flags: aiJd?.reviewFlags || [],
       });
 
       if (jdErr) {
@@ -1670,18 +1836,29 @@ export async function createVacancyInDB(data: {
 }
 
 /**
- * สั่งให้ Gemini สร้างหรือปรับปรุง Job Description ใหม่สำหรับ Vacancy ที่มีอยู่
+ * สั่งให้ Claude สร้างหรือปรับปรุง Job Description ใหม่สำหรับ Vacancy ที่มีอยู่
  */
 export async function regenerateVacancyJDInDB(vacancyId: string, title: string, department: string): Promise<boolean> {
   try {
-    const aiJd = await generateJobDescription(title, department);
+    const historicalJDs = await fetchApprovedJDsByDepartment(department).catch(() => []);
+    const aiJd = await generateJobDescription(title, department, {
+      historicalJDs: historicalJDs.length > 0 ? historicalJDs.map(jd => ({
+        jobTitle: jd.jobTitle,
+        jobTitleTh: jd.jobTitleTh,
+        unitName: jd.unitName,
+        summary: jd.summary,
+        responsibilitiesGrouped: jd.responsibilitiesGrouped,
+        kpis: jd.kpis,
+        competencies: jd.competencies,
+      })) : undefined,
+    });
     const numVacId = Number(vacancyId);
     const vacIdVal = isNaN(numVacId) ? vacancyId : numVacId;
 
     // ลบ JD เดิมของ vacancy นี้ก่อน (ถ้ามี)
     await supabase.from('job_descriptions').delete().eq('vacancy_id', vacIdVal);
 
-    // บันทึก JD ใหม่จาก Gemini (โดยไม่ระบุ id ตายตัว ให้ PostgreSQL auto-increment)
+    // บันทึก JD ใหม่จาก Claude (โดยไม่ระบุ id ตายตัว ให้ PostgreSQL auto-increment)
     const { error } = await supabase.from('job_descriptions').insert({
       vacancy_id: vacIdVal,
       version: 1,
@@ -1702,8 +1879,26 @@ export async function regenerateVacancyJDInDB(vacancyId: string, title: string, 
       salary_max: 95000,
       salary_currency: 'THB',
       generated_by_ai: true,
-      ai_model_version: aiJd.modelVersion || 'gemini-3.8-flash',
+      ai_model_version: aiJd.modelVersion || DEFAULT_MODEL_VERSION,
       ai_confidence: aiJd.confidence || 0.96,
+
+      // 8 หมวดมาตรฐาน (SPU JD Architect)
+      unit_group: aiJd.unitGroup,
+      unit_name: aiJd.unitName || department,
+      track: aiJd.track,
+      position_level: aiJd.positionLevel,
+      reports_to: aiJd.reportsTo,
+      subordinates: aiJd.subordinates || [],
+      unit_profile: aiJd.unitProfile,
+      job_purpose: aiJd.jobPurpose,
+      job_purpose_th: aiJd.jobPurposeTh,
+      responsibilities_grouped: aiJd.responsibilitiesGrouped || [],
+      kpis: aiJd.kpis || [],
+      competencies: aiJd.competencies || {},
+      working_relationships: aiJd.workingRelationships || {},
+      working_conditions: aiJd.workingConditions || {},
+      status: 'DRAFT',
+      review_flags: aiJd.reviewFlags || [],
     });
 
     if (error) {
@@ -1716,7 +1911,7 @@ export async function regenerateVacancyJDInDB(vacancyId: string, title: string, 
       await createNotificationInDB({
         title: 'JD Regenerated by AI',
         titleTh: '🔄 AI ปรับปรุง JD ใหม่เสร็จแล้ว',
-        message: `Job Description for "${title}" has been updated by Gemini`,
+        message: `Job Description for "${title}" has been updated by Claude`,
         messageTh: `AI ปรับปรุง Job Description ตำแหน่ง "${title}" ใหม่เรียบร้อยแล้ว`,
         type: 'INFO',
         actionUrl: `/dashboard/vacancies/${vacancyId}`,

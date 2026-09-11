@@ -1,4 +1,5 @@
 // Vacancy & Position Types
+import type { DutyArea, KPI, Competencies, WorkingRelationships, WorkingConditions } from './ai';
 
 export type VacancyState =
   | 'DRAFT'
@@ -54,6 +55,45 @@ export interface JobDescription {
   approvedAt?: string;
   isCurrent?: boolean;
   createdAt: string;
+
+  // ============================================================
+  // ฟิลด์ใหม่ 8 หมวดมาตรฐาน (SPU JD Architect)
+  // ============================================================
+
+  // หมวด 1: ข้อมูลตำแหน่งเพิ่มเติม (Position Identification)
+  unitGroup?: string;
+  unitName?: string;
+  track?: string;
+  positionLevel?: string;
+  reportsTo?: string;
+  subordinates?: string[];
+  unitProfile?: string;        // P1-P7
+
+  // หมวด 2: วัตถุประสงค์ของตำแหน่ง (Job Purpose)
+  jobPurpose?: string;
+  jobPurposeTh?: string;
+
+  // หมวด 3: หน้าที่ความรับผิดชอบแบบกลุ่ม (Grouped Responsibilities)
+  responsibilitiesGrouped?: DutyArea[];
+
+  // หมวด 4: ตัวชี้วัดผลงาน (KPIs)
+  kpis?: KPI[];
+
+  // หมวด 6: สมรรถนะ (Competencies)
+  competencies?: Competencies;
+
+  // หมวด 7: ความสัมพันธ์ในการทำงาน (Working Relationships)
+  workingRelationships?: WorkingRelationships;
+
+  // หมวด 8: เงื่อนไขและความเสี่ยง (Working Conditions & Risk)
+  workingConditions?: WorkingConditions;
+
+  // Metadata เพิ่มเติม
+  status?: string;
+  tags?: string[];
+  promptUsed?: string;
+  isBenchmark?: boolean;
+  reviewFlags?: string[];
 }
 
 export interface Vacancy {

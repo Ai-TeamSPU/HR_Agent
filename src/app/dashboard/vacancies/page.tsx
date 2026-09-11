@@ -113,7 +113,7 @@ export default function VacanciesPage() {
     loadVacancies();
   }, []);
 
-  // Helper to trigger AI drafting with Gemini
+  // Helper to trigger AI drafting with Claude
   const triggerAIDraft = async (
     title: string,
     dept: string,
@@ -123,14 +123,11 @@ export default function VacanciesPage() {
   ) => {
     setIsAiGenerating(true);
     try {
-      const res = await generateJobDescription(
-        title || 'ตำแหน่งงานใหม่',
-        dept || 'ฝ่ายเทคโนโลยีสารสนเทศ',
-        undefined,
-        skillsList,
-        salMin,
-        salMax
-      );
+      const res = await generateJobDescription(title || 'ตำแหน่งงานใหม่', dept || 'ฝ่ายเทคโนโลยีสารสนเทศ', {
+        customSkills: skillsList,
+        salaryMin: salMin,
+        salaryMax: salMax,
+      });
 
       if (res) {
         setEditJobTitle(res.jobTitleTh || res.jobTitle || title);
@@ -449,7 +446,7 @@ export default function VacanciesPage() {
                     <Badge className="bg-amber-400 text-slate-900 font-extrabold text-[10px]">AI Action</Badge>
                   </h2>
                   <p className="text-[11px] sm:text-xs text-emerald-200 font-medium">
-                    กรอกข้อมูลตำแหน่งงาน และให้ Google Gemini AI ช่วยร่างรายละเอียด Job Description ก่อนเปิดรับสมัคร
+                    กรอกข้อมูลตำแหน่งงาน และให้ Claude AI ช่วยร่างรายละเอียด Job Description ก่อนเปิดรับสมัคร
                   </p>
                 </div>
               </div>
@@ -498,7 +495,7 @@ export default function VacanciesPage() {
                 <div className="py-16 text-center space-y-4">
                   <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
                   <h4 className="text-base font-bold text-slate-900">
-                    Google Gemini AI กำลังวิเคราะห์และร่าง Job Description...
+                    Claude AI กำลังวิเคราะห์และร่าง Job Description...
                   </h4>
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
                     AI กำลังสร้างโครงสร้างหน้าที่ความรับผิดชอบ คุณสมบัติผู้สมัคร และทักษะที่จำเป็นสำหรับตำแหน่ง <b>"{editJobTitle}"</b>

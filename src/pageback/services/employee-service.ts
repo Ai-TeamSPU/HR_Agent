@@ -4,7 +4,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Employee, EmployeeStatus, EmployeeFilterParams, EmployeeStats } from '@/lib/types/employee';
 import type { AIJDGenerationResponse } from '@/lib/types/ai';
-import { generateJobDescription } from './ai-service';
+import { generateJobDescription, DEFAULT_MODEL_VERSION } from './ai-service';
 import { createNotificationInDB } from './supabase-service';
 
 /**
@@ -291,14 +291,12 @@ export async function generateReplacementJDWithAI(employee: Employee): Promise<A
 
     const initialSkills = [posTitle, dept, 'การทำงานเป็นทีม', 'การสื่อสาร'];
 
-    const jd = await generateJobDescription(
-      posTitle,
-      dept,
-      undefined,
-      initialSkills,
-      35000,
-      65000
-    );
+    const jd = await generateJobDescription(posTitle, dept, {
+      positionLevel: level,
+      customSkills: initialSkills,
+      salaryMin: 35000,
+      salaryMax: 65000,
+    });
 
     return jd;
   } catch (err) {
@@ -337,7 +335,7 @@ export async function generateReplacementJDWithAI(employee: Employee): Promise<A
       salaryMin: 35000,
       salaryMax: 65000,
       confidence: 0.95,
-      modelVersion: 'Google Gemini Flash',
+      modelVersion: DEFAULT_MODEL_VERSION,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -429,7 +427,7 @@ export async function createReplacementVacancyAndNotify(
       salary_max: vacancyParams.salaryMax || jdData.salaryMax || 65000,
       salary_currency: 'THB',
       generated_by_ai: true,
-      ai_model_version: jdData.modelVersion || 'Google Gemini Live',
+      ai_model_version: jdData.modelVersion || DEFAULT_MODEL_VERSION,
       ai_confidence: jdData.confidence || 0.95,
       is_current: true,
     });
